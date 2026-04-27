@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% block title %}Responder View{% endblock %}
+{% block content %}
+<div class="page">
+<div class="container">
+  <div class="page-header">
+    <h1>First Responder Dashboard</h1>
+    <p>Live heat map, building status, and smart routing for emergency services</p>
+  </div>
+
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="stat"><div class="stat-num" id="rs-total">0</div><div class="stat-label">Total guests</div></div>
+    <div class="stat"><div class="stat-num" id="rs-zones">3</div><div class="stat-label">Zones monitored</div></div>
+    <div class="stat"><div class="stat-num" id="rs-affected" style="color:var(--red)">—</div><div class="stat-label">Guests at risk</div></div>
+    <div class="stat"><div class="stat-num" id="rs-alert">—</div><div class="stat-label">Alert zone</div></div>
+  </div>
+
+  <div class="alert-bar" id="resp-alert-bar">
+    <div class="alert-bar-icon">🚨</div>
+    <div class="alert-bar-text">
+      <h3 id="resp-alert-title">Emergency Active</h3>
+      <p id="resp-alert-desc"></p>
+    </div>
+  </div>
+
+  <!-- HEAT MAP -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Live Zone Heat Map</div>
+    <div class="grid3" id="heatmap"></div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:16px;align-items:start">
+    <!-- GOOGLE MAPS PANEL -->
+    <div class="card">
+      <div class="card-title">🗺️ Google Maps — Inbound Responder Route</div>
+      <div id="map-container">
+        <div class="map-placeholder">
+          <div style="font-size:32px">🗺️</div>
+          <div style="font-weight:600;color:var(--ink2)">Google Maps Integration</div>
+          <div style="font-size:12px;text-align:center;max-width:240px;line-height:1.5">Trigger an emergency to compute and display the optimal route from fire station to building entrance</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROUTING INFO -->
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Routing Details</div>
+        <div id="routing-details">
+          <div style="color:var(--ink3);font-size:12px">No active routing</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">AI Evacuation Broadcast</div>
+        <div class="ai-output" id="resp-ai" style="max-height:160px;overflow-y:auto">
+          <span style="color:var(--ink3);font-size:12px">Active AI instructions will appear here during an emergency...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FULL GUEST REGISTRY -->
+  <div class="card">
+    <div class="card-title">Full Guest Registry</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px" id="zone-registries"></div>
+  </div>
+</div>
+</div>
+
+<script>
+const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
+
+// Function to play alert sound
+function playAlertSound() {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Start frequency
+    oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.1); // Rise
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2); // Fall back
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+  } catch (e) {
+    console.log('Audio not supported');
+  }
+}
+
+// Siren sound variables
+let sirenAudioContext = null;
+let sirenOscillator = null;
+let sirenGainNode = null;
+let sirenInterval = null;
+
+function startSiren() {
+  try {
+    if (sirenAudioContext) return; // Already playing
+
+    sirenAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    sirenOscillator = sirenAudioContext.createOscillator();
+    sirenGainNode = sirenAudioContext.createGain();
+
+    sirenOscillator.connect(sirenGainNode);
+    sirenGainNode.connect(sirenAudioContext.destination);
+
+    sirenGainNode.gain.setValueAtTime(0.2, sirenAudioContext.currentTime);
+
+    // Create siren effect with frequency modulation
+    let frequency = 800;
+    let direction = 1;
+
+    sirenInterval = setInterval(() => {
+      if (sirenOscillator) {
+        frequency += direction * 50;
+        if (frequency >= 1200) direction = -1;
+        if (frequency <= 600) direction = 1;
+        sirenOscillator.frequency.setValueAtTime(frequency, sirenAudioContext.currentTime);
+      }
+    }, 50);
+
+    sirenOscillator.start(sirenAudioContext.currentTime);
+  } catch (e) {
+    console.log('Siren audio not supported');
+  }
+}
+
+function stopSiren() {
+  try {
+    if (sirenInterval) {
+      clearInterval(sirenInterval);
+      sirenInterval = null;
+    }
+    if (sirenOscillator) {
+      sirenOscillator.stop();
+      sirenOscillator = null;
+    }
+    if (sirenAudioContext) {
+      sirenAudioContext.close();
+      sirenAudioContext = null;
+    }
+  } catch (e) {
+    console.log('Error stopping siren');
+  }
+}
+
+async function loadAll(){
+  const [zones, emergencies] = await Promise.all([
+    fetch('/api/zones').then(r=>r.json()),
+    fetch('/api/emergencies').then(r=>r.json())
+  ]);
+
+  const total = Object.values(zones).reduce((s,z)=>s+z.count, 0);
+  document.getElementById('rs-total').textContent = total;
+
+  // Heat map
+  const hm = document.getElementById('heatmap');
+  hm.innerHTML = Object.entries(zones).map(([k,z])=>{
+    const max = Math.max(...Object.values(zones).map(x=>x.count), 1);
+    const pct = Math.round(z.count / max * 100);
+    return `<div class="heat-zone ${z.alert?'alert':'calm'}" id="hz-${k}">
+      <div class="heat-zone-name">Building ${k}</div>
+      <div style="font-size:10px;color:var(--ink3);margin-bottom:8px">${z.name.split('—')[1]?.trim()||''}</div>
+      <div class="heat-zone-count">${z.count}</div>
+      <div class="heat-zone-label">guests registered</div>
+      <div class="heat-bar-wrap"><div class="heat-bar" style="width:${pct}%"></div></div>
+      <div style="font-size:11px;margin-top:8px;font-weight:600;color:${z.alert?'var(--red)':'var(--green)'}">
+        ${z.alert ? '🔴 '+z.emergency.type.toUpperCase() : '● All clear'}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Check emergency
+  const activeZone = Object.keys(emergencies)[0];
+  if(activeZone){
+    const em = emergencies[activeZone];
+    startSiren(); // Start siren for active emergency
+    document.getElementById('rs-affected').textContent = em.affected_count;
+    document.getElementById('rs-alert').textContent = 'Bldg '+activeZone;
+    document.getElementById('resp-alert-bar').classList.add('show');
+    document.getElementById('resp-alert-title').textContent = `${em.type} — ${em.zone_info.name}`;
+    document.getElementById('resp-alert-desc').textContent = `${em.affected_count} guests affected · Triggered at ${new Date(em.time).toLocaleTimeString()}`;
+    document.getElementById('nav-dot').classList.add('pulse');
+    document.getElementById('nav-alert').classList.add('show');
+    showRouting(em);
+    if(em.ai_instructions) document.getElementById('resp-ai').textContent = em.ai_instructions;
+  } else {
+    stopSiren(); // Stop siren when no emergency
+    document.getElementById('rs-affected').textContent = '—';
+    document.getElementById('rs-alert').textContent = '—';
+    document.getElementById('resp-alert-bar').classList.remove('show');
+  }
+
+  // Zone registries
+  const reg = document.getElementById('zone-registries');
+  reg.innerHTML = Object.entries(zones).map(([k,z])=>`
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span class="badge ${zoneClass(k)}">Building ${k}</span>
+        <span style="font-size:12px;color:var(--ink3)">${z.count} guests</span>
+      </div>
+      <div class="guest-list">
+        ${z.guests.length ? z.guests.map(g=>`
+          <div class="guest-row">
+            <div class="guest-avatar">${initials(g.name)}</div>
+            <div class="guest-info">
+              <div class="guest-name">${g.name}</div>
+              <div class="guest-sub">Rm ${g.room} · ${langFlag(g.lang)}</div>
+            </div>
+          </div>`).join('') : '<div style="color:var(--ink3);font-size:12px;padding:8px 0">No guests</div>'}
+      </div>
+    </div>`).join('');
+}
+
+function showRouting(em){
+  const mapsUrl = em.maps_url;
+  const embedUrl = `https://www.google.com/maps/embed/v1/directions?key=${GOOGLE_MAPS_API_KEY}&origin=${em.fire_station.lat},${em.fire_station.lng}&destination=${em.zone_info.lat},${em.zone_info.lng}&mode=driving`;
+
+  if(GOOGLE_MAPS_API_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY'){
+    document.getElementById('map-container').innerHTML = `<iframe id="map-frame" src="${embedUrl}" allowfullscreen loading="lazy"></iframe>`;
+  } else {
+    document.getElementById('map-container').innerHTML = `
+      <div class="map-placeholder" style="background:var(--paper2);position:relative">
+        <div style="font-size:28px">🗺️</div>
+        <div style="font-weight:600;color:var(--ink2);font-size:14px">Route: Fire Station → Building ${em.zone}</div>
+        <div style="font-size:12px;color:var(--ink3);text-align:center;max-width:260px">
+          Add your Google Maps API key to <code style="background:var(--paper3);padding:2px 5px;border-radius:3px">app.py</code> to embed live route<br><br>
+          <strong>Coordinates:</strong><br>
+          From: ${em.fire_station.lat}, ${em.fire_station.lng}<br>
+          To: ${em.zone_info.lat}, ${em.zone_info.lng}
+        </div>
+        <a href="${mapsUrl}" target="_blank" class="btn btn-primary" style="margin-top:8px;font-size:12px">
+          🗺️ Open in Google Maps →
+        </a>
+      </div>`;
+  }
+
+  document.getElementById('routing-details').innerHTML = `
+    <div style="font-size:12px;color:var(--red);font-weight:600;margin-bottom:10px">🚒 Active routing: ${em.type} — Building ${em.zone}</div>
+    <div class="route-grid">
+      <div class="route-card">
+        <div class="route-card-label">Origin</div>
+        <div class="route-card-value">Central Fire Station</div>
+      </div>
+      <div class="route-card">
+        <div class="route-card-label">Destination</div>
+        <div class="route-card-value">${em.zone_info.name}</div>
+      </div>
+      <div class="route-card">
+        <div class="route-card-label">Entry point</div>
+        <div class="route-card-value">${em.zone_info.entrance}</div>
+      </div>
+      <div class="route-card">
+        <div class="route-card-label">Guest exit</div>
+        <div class="route-card-value">${em.zone_info.exit}</div>
+      </div>
+    </div>
+    <a href="${mapsUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:8px 14px;background:var(--blue);color:#fff;border-radius:var(--radius);font-size:12px;font-weight:500;text-decoration:none">
+      Open full Google Maps directions →
+    </a>`;
+}
+
+window.onEmergency = () => { startSiren(); loadAll(); };
+window.onEmergencyCleared = () => { stopSiren(); loadAll(); };
+window.onGuestUpdate = () => loadAll();
+loadAll();
+setInterval(loadAll, 10000); // Poll every 10s
+</script>
+{% endblock %}

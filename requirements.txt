@@ -1,0 +1,4 @@
+flask
+flask-socketio
+anthropic
+python-dotenv

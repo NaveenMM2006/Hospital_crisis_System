@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<div class="page">
+<div class="container">
+  <div class="page-header">
+    <h1>Admin Dashboard</h1>
+    <p>Trigger and manage building emergencies with AI-generated evacuation broadcasts</p>
+  </div>
+
+  <div class="alert-bar" id="alert-bar">
+    <div class="alert-bar-icon">🚨</div>
+    <div class="alert-bar-text">
+      <h3 id="alert-title">Emergency Active</h3>
+      <p id="alert-desc"></p>
+    </div>
+    <button class="btn btn-sm" style="margin-left:auto;background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.3)" onclick="clearAlert()">Clear Alert</button>
+  </div>
+
+  <div class="siren-bar" id="siren-bar">⚠ SIREN ACTIVE — Priority alerts broadcasting to all zone devices via FCM</div>
+
+  <div class="grid2" style="align-items:start">
+    <!-- LEFT -->
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Emergency Trigger Panel</div>
+        <div class="form-group">
+          <label>Affected Zone</label>
+          <select class="form-control" id="t-zone" onchange="updateAffectedCount()">
+            <option value="A">Building A — Main Tower</option>
+            <option value="B">Building B — Garden Wing</option>
+            <option value="C">Building C — Beach Resort</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Emergency Type</label>
+          <select class="form-control" id="t-type">
+            <option value="Fire">🔥 Fire</option>
+            <option value="Flood">💧 Flood</option>
+            <option value="Earthquake">⚡ Earthquake</option>
+            <option value="Medical Emergency">🏥 Medical Emergency</option>
+            <option value="Security Threat">🔒 Security Threat</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Broadcast Language</label>
+          <div class="lang-pills" id="lang-pills">
+            <button class="lang-pill active" onclick="setLang('English',this)">🇬🇧 English</button>
+            <button class="lang-pill" onclick="setLang('German',this)">🇩🇪 Deutsch</button>
+            <button class="lang-pill" onclick="setLang('French',this)">🇫🇷 Français</button>
+            <button class="lang-pill" onclick="setLang('Spanish',this)">🇪🇸 Español</button>
+            <button class="lang-pill" onclick="setLang('Japanese',this)">🇯🇵 日本語</button>
+          </div>
+        </div>
+        <div style="background:var(--amber-light);border:1px solid #FDE68A;border-radius:var(--radius);padding:10px;font-size:12px;color:#92400E;margin-bottom:12px" id="affected-preview">
+          Select a zone to see affected guests
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-danger btn-full" id="trigger-btn" onclick="triggerEmergency()">🚨 Trigger Emergency</button>
+          <button class="btn btn-sm" onclick="clearAlert()">Clear</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">🤖 AI-Generated Evacuation Instructions</div>
+        <div class="ai-output" id="ai-output">
+          <span style="color:var(--ink3);font-size:12px">Trigger an emergency to generate real-time multilingual AI instructions via Anthropic Claude...</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Event Log</div>
+        <div class="event-log" id="event-log">
+          <div class="log-entry"><span class="log-time">[init]</span> <span class="log-msg">System online. All zones nominal.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Evacuation Map</div>
+        <div class="evac-map" id="evac-map">
+          <div class="evac-bldg" id="eb-a" style="left:8px;top:20px;width:100px;height:80px">A</div>
+          <div class="evac-bldg" id="eb-b" style="left:118px;top:20px;width:100px;height:80px">B</div>
+          <div class="evac-bldg" id="eb-c" style="left:228px;top:20px;width:100px;height:80px">C</div>
+          <div class="evac-exit-label" style="bottom:10px;left:50px">EXIT A</div>
+          <div class="evac-exit-label" style="bottom:10px;left:152px">MAIN EXIT</div>
+          <div class="evac-exit-label" style="bottom:10px;left:254px">EXIT C</div>
+          <div id="evac-path-overlay"></div>
+        </div>
+        <div id="evac-info" style="font-size:12px;color:var(--ink3);margin-top:8px;text-align:center">No active evacuation route</div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">🚒 First Responder Routing</div>
+        <div id="routing-panel">
+          <div style="color:var(--ink3);font-size:12px">No active emergency</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Affected Guests</div>
+        <div class="guest-list" id="affected-list" style="max-height:200px;overflow-y:auto">
+          <div style="color:var(--ink3);font-size:12px">No active emergency</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+let broadcastLang = 'English';
+let allGuests = [];
+
+// Function to play alert sound
+function playAlertSound() {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Start frequency
+    oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.1); // Rise
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2); // Fall back
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+  } catch (e) {
+    console.log('Audio not supported');
+  }
+}
+
+async function loadGuests(){
+  allGuests = await fetch('/api/guests').then(r=>r.json());
+  updateAffectedCount();
+  checkExistingEmergencies();
+}
+
+async function checkExistingEmergencies(){
+  const em = await fetch('/api/emergencies').then(r=>r.json());
+  if(Object.keys(em).length > 0){
+    const first = Object.values(em)[0];
+    applyEmergencyUI(first);
+  }
+}
+
+function setLang(l, btn){
+  broadcastLang = l;
+  document.querySelectorAll('.lang-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function updateAffectedCount(){
+  const zone = document.getElementById('t-zone').value;
+  const count = allGuests.filter(g=>g.zone===zone).length;
+  document.getElementById('affected-preview').textContent = `⚠ Building ${zone}: ${count} guest${count!==1?'s':''} will receive emergency alert`;
+}
+
+async function triggerEmergency(){
+  const zone = document.getElementById('t-zone').value;
+  const type = document.getElementById('t-type').value;
+  const btn = document.getElementById('trigger-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Broadcasting...';
+
+  // Show AI loading
+  document.getElementById('ai-output').innerHTML = `<div class="ai-thinking"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span style="margin-left:6px">Generating ${broadcastLang} evacuation instructions via Claude AI...</span></div>`;
+
+  const res = await fetch('/api/emergency', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({zone, type, lang:broadcastLang})
+  });
+  const data = await res.json();
+  applyEmergencyUI(data);
+  btn.disabled = false;
+  btn.textContent = '🚨 Trigger Emergency';
+  logEntry(document.getElementById('event-log'), `TRIGGERED: ${type} in Building ${zone} — ${data.affected_count} guests notified`);
+  logEntry(document.getElementById('event-log'), `AI instructions generated in ${broadcastLang}`);
+  logEntry(document.getElementById('event-log'), `Responder route: ${data.zone_info.entrance}`);
+}
+
+function applyEmergencyUI(data){
+  const zone = data.zone;
+  // Play alert sound
+  playAlertSound();
+  // Alert bar
+  document.getElementById('alert-bar').classList.add('show');
+  document.getElementById('alert-title').textContent = `${data.type} — ${data.zone_info.name}`;
+  document.getElementById('alert-desc').textContent = `${data.affected_count} guests affected. Declared at ${new Date(data.time).toLocaleTimeString()}`;
+  document.getElementById('siren-bar').classList.add('show');
+  document.getElementById('trigger-btn').classList.add('alarming');
+  document.getElementById('nav-dot').classList.add('pulse');
+  document.getElementById('nav-alert').classList.add('show');
+
+  // AI output
+  document.getElementById('ai-output').textContent = data.ai_instructions;
+
+  // Evac map
+  ['A','B','C'].forEach(z=>{
+    document.getElementById('eb-'+z.toLowerCase()).classList.toggle('on-fire', z===zone);
+  });
+  document.getElementById('evac-info').textContent = `Building ${zone}: ${data.zone_info.exit}`;
+
+  // Routing
+  document.getElementById('routing-panel').innerHTML = `
+    <div style="font-size:12px;color:var(--red);font-weight:600;margin-bottom:8px">🚒 Active: ${data.type} — Building ${zone}</div>
+    <div class="route-grid">
+      <div class="route-card"><div class="route-card-label">Entrance point</div><div class="route-card-value">${data.zone_info.entrance}</div></div>
+      <div class="route-card"><div class="route-card-label">Guest exit</div><div class="route-card-value">${data.zone_info.exit}</div></div>
+    </div>
+    <a href="${data.maps_url}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:8px 14px;background:var(--blue);color:#fff;border-radius:var(--radius);font-size:12px;font-weight:500">
+      🗺️ Open Google Maps Route for Brigade →
+    </a>
+    <div style="font-size:10px;color:var(--ink3);margin-top:6px">Opens turn-by-turn navigation from fire station to building entrance</div>`;
+
+  // Affected guests
+  const list = document.getElementById('affected-list');
+  if(data.affected_guests && data.affected_guests.length > 0){
+    list.innerHTML = data.affected_guests.map(g=>`
+      <div class="guest-row">
+        <div class="guest-avatar">${initials(g.name)}</div>
+        <div class="guest-info"><div class="guest-name">${g.name}</div><div class="guest-sub">Rm ${g.room} · ${langFlag(g.lang)} ${g.lang}</div></div>
+        <span class="badge badge-alert">AT RISK</span>
+      </div>`).join('');
+  } else {
+    list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:8px 0">No guests registered in this zone</div>';
+  }
+}
+
+async function clearAlert(){
+  const zones = await fetch('/api/emergencies').then(r=>r.json());
+  for(const z of Object.keys(zones)){
+    await fetch(`/api/emergency/${z}`, {method:'DELETE'});
+  }
+  document.getElementById('alert-bar').classList.remove('show');
+  document.getElementById('siren-bar').classList.remove('show');
+  document.getElementById('trigger-btn').classList.remove('alarming');
+  document.getElementById('nav-dot').classList.remove('pulse');
+  document.getElementById('nav-alert').classList.remove('show');
+  document.getElementById('ai-output').innerHTML = '<span style="color:var(--ink3);font-size:12px">Trigger an emergency to generate real-time multilingual AI instructions...</span>';
+  document.getElementById('routing-panel').innerHTML = '<div style="color:var(--ink3);font-size:12px">No active emergency</div>';
+  document.getElementById('affected-list').innerHTML = '<div style="color:var(--ink3);font-size:12px">No active emergency</div>';
+  document.getElementById('evac-info').textContent = 'No active evacuation route';
+  ['a','b','c'].forEach(z=>document.getElementById('eb-'+z).classList.remove('on-fire'));
+  logEntry(document.getElementById('event-log'), 'All zones cleared — system returned to normal');
+}
+
+window.onEmergency = (data) => applyEmergencyUI(data);
+window.onEmergencyCleared = () => clearAlert();
+window.onGuestUpdate = () => loadGuests();
+loadGuests();
+</script>
+{% endblock %}

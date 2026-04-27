@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Check-in{% endblock %}
+{% block content %}
+<div class="page">
+<div class="container">
+  <div class="page-header">
+    <h1>Guest Check-in</h1>
+    <p>Register guests and assign them to building zones</p>
+  </div>
+
+  <div class="grid2" style="align-items:start">
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">New Guest Registration</div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input class="form-control" id="g-name" placeholder="e.g. Maria Schmidt"/>
+        </div>
+        <div class="form-group">
+          <label>Room Number</label>
+          <input class="form-control" id="g-room" placeholder="e.g. 204"/>
+        </div>
+        <div class="form-group">
+          <label>Zone Assignment</label>
+          <select class="form-control" id="g-zone">
+            <option value="A">Building A — Main Tower</option>
+            <option value="B">Building B — Garden Wing</option>
+            <option value="C">Building C — Beach Resort</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Language Preference</label>
+          <select class="form-control" id="g-lang">
+            <option>English</option>
+            <option>German</option>
+            <option>French</option>
+            <option>Spanish</option>
+            <option>Japanese</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="registerGuest()">Register Guest →</button>
+        <div id="reg-msg" style="margin-top:10px;font-size:12px;text-align:center;color:var(--green);display:none">✓ Guest registered successfully</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Zone Occupancy</div>
+        <div class="grid3" id="zone-counts">
+          <div class="stat"><div class="stat-num" id="ca">0</div><div class="stat-label">Building A</div></div>
+          <div class="stat"><div class="stat-num" id="cb">0</div><div class="stat-label">Building B</div></div>
+          <div class="stat"><div class="stat-num" id="cc">0</div><div class="stat-label">Building C</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Registered Guests <span id="guest-count" style="background:var(--paper2);padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600">0</span></div>
+      <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="filterGuests('all')" id="f-all">All</button>
+        <button class="btn btn-sm" onclick="filterGuests('A')" id="f-a">Building A</button>
+        <button class="btn btn-sm" onclick="filterGuests('B')" id="f-b">Building B</button>
+        <button class="btn btn-sm" onclick="filterGuests('C')" id="f-c">Building C</button>
+      </div>
+      <div class="guest-list" id="guest-list" style="max-height:480px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+let allGuests = [];
+let filter = 'all';
+
+async function loadGuests(){
+  allGuests = await fetch('/api/guests').then(r=>r.json());
+  renderGuests();
+  updateCounts();
+}
+
+function renderGuests(){
+  const list = filter === 'all' ? allGuests : allGuests.filter(g=>g.zone===filter);
+  const el = document.getElementById('guest-list');
+  el.innerHTML = list.map(g=>`
+    <div class="guest-row">
+      <div class="guest-avatar">${initials(g.name)}</div>
+      <div class="guest-info">
+        <div class="guest-name">${g.name}</div>
+        <div class="guest-sub">Room ${g.room} · ${langFlag(g.lang)} ${g.lang}</div>
+      </div>
+      <span class="badge ${zoneClass(g.zone)}">Bldg ${g.zone}</span>
+    </div>`).join('') || '<div style="color:var(--ink3);font-size:12px;padding:12px 0">No guests in this zone</div>';
+  document.getElementById('guest-count').textContent = allGuests.length;
+}
+
+function updateCounts(){
+  ['A','B','C'].forEach(z=>{
+    document.getElementById('c'+z.toLowerCase()).textContent = allGuests.filter(g=>g.zone===z).length;
+  });
+}
+
+function filterGuests(f){
+  filter = f;
+  ['all','A','B','C'].forEach(x=>{
+    document.getElementById('f-'+x.toLowerCase()).style.background = (f===x?'var(--ink)':'');
+    document.getElementById('f-'+x.toLowerCase()).style.color = (f===x?'#fff':'');
+  });
+  renderGuests();
+}
+
+async function registerGuest(){
+  const name = document.getElementById('g-name').value.trim();
+  const room = document.getElementById('g-room').value.trim();
+  if(!name||!room){alert('Please enter name and room');return;}
+  await fetch('/api/guests',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name,room,zone:document.getElementById('g-zone').value,lang:document.getElementById('g-lang').value})});
+  document.getElementById('g-name').value='';
+  document.getElementById('g-room').value='';
+  const msg=document.getElementById('reg-msg');
+  msg.style.display='block';setTimeout(()=>msg.style.display='none',2000);
+  loadGuests();
+}
+
+window.onGuestUpdate = () => loadGuests();
+loadGuests();
+</script>
+{% endblock %}

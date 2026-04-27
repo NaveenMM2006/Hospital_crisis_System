@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<div class="page">
+<div class="container">
+  <div class="page-header">
+    <h1>Hospitality Crisis Sync</h1>
+    <p>Real-time emergency coordination for hotels, resorts &amp; theme parks</p>
+  </div>
+
+  <div class="grid4" style="margin-bottom:20px" id="overview-stats">
+    <div class="stat"><div class="stat-num" id="ov-total">—</div><div class="stat-label">Total guests</div></div>
+    <div class="stat"><div class="stat-num" id="ov-zones">3</div><div class="stat-label">Zones online</div></div>
+    <div class="stat"><div class="stat-num" id="ov-alerts">0</div><div class="stat-label">Active alerts</div></div>
+    <div class="stat"><div class="stat-num" id="ov-safe">100%</div><div class="stat-label">Safe status</div></div>
+  </div>
+
+  <div class="alert-bar" id="ov-alert-bar">
+    <div class="alert-bar-icon">🚨</div>
+    <div class="alert-bar-text">
+      <h3 id="ov-alert-title">Emergency Active</h3>
+      <p id="ov-alert-desc"></p>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:20px">
+    <div class="card">
+      <div class="card-title">Zone Status</div>
+      <div id="zone-status-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Quick Access</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a href="/checkin" class="btn btn-full btn-primary">→ Guest Check-in Portal</a>
+        <a href="/admin" class="btn btn-full">→ Admin Emergency Dashboard</a>
+        <a href="/responder" class="btn btn-full">→ First Responder View</a>
+      </div>
+      <div style="margin-top:16px;padding:12px;background:var(--paper);border-radius:var(--radius);border:1px solid var(--paper3)">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:600;margin-bottom:8px">System</div>
+        <div style="display:flex;flex-direction:column;gap:5px;font-size:12px;font-family:var(--mono);color:var(--ink3)">
+          <span>● Firebase FCM topics: online</span>
+          <span>● Anthropic AI: configured</span>
+          <span>● Google Maps API: ready</span>
+          <span>● WebSocket sync: live</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Architecture Overview</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center;align-items:center">
+      <div style="background:var(--paper);border-radius:var(--radius);padding:12px;border:1px solid var(--paper3)">
+        <div style="font-size:20px">📱</div>
+        <div style="font-size:11px;font-weight:600;margin-top:4px;font-family:var(--display)">Guest Devices</div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:2px">FCM Push Alerts</div>
+      </div>
+      <div style="color:var(--ink3);font-size:18px;font-weight:300">→</div>
+      <div style="background:var(--ink);color:#fff;border-radius:var(--radius);padding:12px">
+        <div style="font-size:20px">⚡</div>
+        <div style="font-size:11px;font-weight:600;margin-top:4px;font-family:var(--display)">Python / Flask</div>
+        <div style="font-size:10px;opacity:.6;margin-top:2px">+ SocketIO</div>
+      </div>
+      <div style="color:var(--ink3);font-size:18px;font-weight:300">→</div>
+      <div style="background:var(--paper);border-radius:var(--radius);padding:12px;border:1px solid var(--paper3)">
+        <div style="font-size:20px">🤖</div>
+        <div style="font-size:11px;font-weight:600;margin-top:4px;font-family:var(--display)">Anthropic AI</div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:2px">Multilingual</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">
+      <div style="background:var(--paper);border-radius:var(--radius);padding:10px;border:1px solid var(--paper3);text-align:center">
+        <div style="font-size:16px">🗺️</div>
+        <div style="font-size:11px;font-weight:600;margin-top:3px;font-family:var(--display)">Google Maps API</div>
+        <div style="font-size:10px;color:var(--ink3)">Responder routing</div>
+      </div>
+      <div style="background:var(--paper);border-radius:var(--radius);padding:10px;border:1px solid var(--paper3);text-align:center">
+        <div style="font-size:16px">🔥</div>
+        <div style="font-size:11px;font-weight:600;margin-top:3px;font-family:var(--display)">Firebase Firestore</div>
+        <div style="font-size:10px;color:var(--ink3)">Real-time guest DB</div>
+      </div>
+      <div style="background:var(--paper);border-radius:var(--radius);padding:10px;border:1px solid var(--paper3);text-align:center">
+        <div style="font-size:16px">📡</div>
+        <div style="font-size:11px;font-weight:600;margin-top:3px;font-family:var(--display)">FCM Topics</div>
+        <div style="font-size:10px;color:var(--ink3)">Zoned push alerts</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// Function to play alert sound
+function playAlertSound() {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Start frequency
+    oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.1); // Rise
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2); // Fall back
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+  } catch (e) {
+    console.log('Audio not supported');
+  }
+}
+
+async function loadOverview(){
+  const [gz, ge] = await Promise.all([fetch('/api/zones').then(r=>r.json()), fetch('/api/emergencies').then(r=>r.json())]);
+  const total = Object.values(gz).reduce((s,z)=>s+z.count,0);
+  const alerts = Object.keys(ge).length;
+  document.getElementById('ov-total').textContent = total;
+  document.getElementById('ov-alerts').textContent = alerts;
+  document.getElementById('ov-safe').textContent = alerts > 0 ? '⚠️' : '100%';
+
+  const list = document.getElementById('zone-status-list');
+  list.innerHTML = Object.entries(gz).map(([k,z])=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--paper2)">
+      <div style="width:10px;height:10px;border-radius:50%;background:${z.alert?'var(--red)':'var(--green)'}${z.alert?';animation:navpulse 1s infinite':''}"></div>
+      <div style="flex:1">
+        <div style="font-weight:500;font-size:13px">${z.name}</div>
+        <div style="font-size:11px;color:var(--ink3)">${z.count} guests registered</div>
+      </div>
+      <span class="badge ${zoneClass(k)}">${z.alert ? z.emergency.type.toUpperCase() : 'Normal'}</span>
+    </div>`).join('');
+
+  if(alerts > 0){
+    const em = Object.values(ge)[0];
+    document.getElementById('ov-alert-bar').classList.add('show');
+    document.getElementById('ov-alert-title').textContent = `${em.type} — ${em.zone_info.name}`;
+    document.getElementById('ov-alert-desc').textContent = `${em.affected_count} guests affected. Triggered at ${new Date(em.time).toLocaleTimeString()}.`;
+    document.getElementById('nav-dot').classList.add('pulse');
+    document.getElementById('nav-alert').classList.add('show');
+  }
+}
+loadOverview();
+window.onEmergency = () => { playAlertSound(); loadOverview(); };
+window.onEmergencyCleared = () => loadOverview();
+</script>
+{% endblock %}
