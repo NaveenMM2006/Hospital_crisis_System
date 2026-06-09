@@ -79,6 +79,13 @@
     <!-- RIGHT -->
     <div>
       <div class="card" style="margin-bottom:16px">
+        <div class="card-title">🧠 Live Agent Activity</div>
+        <div id="agent-feed" style="max-height:240px;overflow-y:auto;font-size:12px;display:flex;flex-direction:column;gap:6px">
+          <div style="color:var(--ink3)">Agents idle — trigger an emergency to see them work.</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
         <div class="card-title">Evacuation Map</div>
         <div class="evac-map" id="evac-map">
           <div class="evac-bldg" id="eb-a" style="left:8px;top:20px;width:100px;height:80px">A</div>
@@ -114,29 +121,50 @@
 let broadcastLang = 'English';
 let allGuests = [];
 
-// Function to play alert sound
 function playAlertSound() {
   try {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
-
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
-
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Start frequency
-    oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.1); // Rise
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2); // Fall back
-
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.1);
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.5);
-  } catch (e) {
-    console.log('Audio not supported');
-  }
+  } catch (e) { console.log('Audio not supported'); }
 }
+
+// ── Live Agent Activity feed ──
+const AGENT_STYLE = {
+  Assessment: {icon:'🧠', color:'#2563EB'},
+  Broadcast:  {icon:'📣', color:'#16A34A'},
+  Tracking:   {icon:'📍', color:'#E5484D'},
+};
+function pushAgent(agent, msg){
+  const feed = document.getElementById('agent-feed');
+  if(feed.dataset.fresh !== '1'){ feed.innerHTML=''; feed.dataset.fresh='1'; }
+  const s = AGENT_STYLE[agent] || {icon:'⚙️', color:'#6E6F77'};
+  const t = new Date().toLocaleTimeString();
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-left:3px solid '+s.color+';background:#f7f7f5;border-radius:6px';
+  row.innerHTML = `<span>${s.icon}</span><div><b style="color:${s.color}">${agent} agent</b> <span style="color:var(--ink3)">· ${t}</span><br>${msg}</div>`;
+  feed.prepend(row);
+}
+function resetAgentFeed(){
+  const feed = document.getElementById('agent-feed');
+  feed.dataset.fresh = '0';
+  feed.innerHTML = '<div style="color:var(--ink3)">Agents idle — trigger an emergency to see them work.</div>';
+}
+window.onAgentLog = (d) => pushAgent(d.agent, d.msg);
+window.onAtRisk   = (d) => {
+  pushAgent('Tracking', `⚠ ${d.guest.name} (Room ${d.guest.room}) not responding — re-alerting`);
+  const el = document.getElementById('gstatus-' + d.guest.id);
+  if(el){ el.textContent = 'AT-RISK'; el.className = 'badge badge-alert'; }
+};
 
 async function loadGuests(){
   allGuests = await fetch('/api/guests').then(r=>r.json());
@@ -147,8 +175,7 @@ async function loadGuests(){
 async function checkExistingEmergencies(){
   const em = await fetch('/api/emergencies').then(r=>r.json());
   if(Object.keys(em).length > 0){
-    const first = Object.values(em)[0];
-    applyEmergencyUI(first);
+    applyEmergencyUI(Object.values(em)[0]);
   }
 }
 
@@ -170,8 +197,7 @@ async function triggerEmergency(){
   const btn = document.getElementById('trigger-btn');
   btn.disabled = true;
   btn.textContent = '⏳ Broadcasting...';
-
-  // Show AI loading
+  resetAgentFeed();
   document.getElementById('ai-output').innerHTML = `<div class="ai-thinking"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span style="margin-left:6px">Generating ${broadcastLang} evacuation instructions via Claude AI...</span></div>`;
 
   const res = await fetch('/api/emergency', {
@@ -189,27 +215,22 @@ async function triggerEmergency(){
 
 function applyEmergencyUI(data){
   const zone = data.zone;
-  // Play alert sound
   playAlertSound();
-  // Alert bar
   document.getElementById('alert-bar').classList.add('show');
   document.getElementById('alert-title').textContent = `${data.type} — ${data.zone_info.name}`;
   document.getElementById('alert-desc').textContent = `${data.affected_count} guests affected. Declared at ${new Date(data.time).toLocaleTimeString()}`;
   document.getElementById('siren-bar').classList.add('show');
   document.getElementById('trigger-btn').classList.add('alarming');
-  document.getElementById('nav-dot').classList.add('pulse');
-  document.getElementById('nav-alert').classList.add('show');
+  if(document.getElementById('nav-dot')) document.getElementById('nav-dot').classList.add('pulse');
+  if(document.getElementById('nav-alert')) document.getElementById('nav-alert').classList.add('show');
 
-  // AI output
-  document.getElementById('ai-output').textContent = data.ai_instructions;
+  document.getElementById('ai-output').textContent = data.ai_instructions || (data.affected_guests && data.affected_guests[0] && data.affected_guests[0].instructions) || '';
 
-  // Evac map
   ['A','B','C'].forEach(z=>{
-    document.getElementById('eb-'+z.toLowerCase()).classList.toggle('on-fire', z===zone);
+    document.getElementById('eb-'+z.toLowerCase()).classList.toggle('on-fire', (data.affected_zones || [zone]).includes(z));
   });
   document.getElementById('evac-info').textContent = `Building ${zone}: ${data.zone_info.exit}`;
 
-  // Routing
   document.getElementById('routing-panel').innerHTML = `
     <div style="font-size:12px;color:var(--red);font-weight:600;margin-bottom:8px">🚒 Active: ${data.type} — Building ${zone}</div>
     <div class="route-grid">
@@ -221,14 +242,13 @@ function applyEmergencyUI(data){
     </a>
     <div style="font-size:10px;color:var(--ink3);margin-top:6px">Opens turn-by-turn navigation from fire station to building entrance</div>`;
 
-  // Affected guests
   const list = document.getElementById('affected-list');
   if(data.affected_guests && data.affected_guests.length > 0){
     list.innerHTML = data.affected_guests.map(g=>`
       <div class="guest-row">
         <div class="guest-avatar">${initials(g.name)}</div>
         <div class="guest-info"><div class="guest-name">${g.name}</div><div class="guest-sub">Rm ${g.room} · ${langFlag(g.lang)} ${g.lang}</div></div>
-        <span class="badge badge-alert">AT RISK</span>
+        <span id="gstatus-${g.id}" class="badge badge-alert">ALERTED</span>
       </div>`).join('');
   } else {
     list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:8px 0">No guests registered in this zone</div>';
@@ -243,19 +263,22 @@ async function clearAlert(){
   document.getElementById('alert-bar').classList.remove('show');
   document.getElementById('siren-bar').classList.remove('show');
   document.getElementById('trigger-btn').classList.remove('alarming');
-  document.getElementById('nav-dot').classList.remove('pulse');
-  document.getElementById('nav-alert').classList.remove('show');
+  if(document.getElementById('nav-dot')) document.getElementById('nav-dot').classList.remove('pulse');
+  if(document.getElementById('nav-alert')) document.getElementById('nav-alert').classList.remove('show');
   document.getElementById('ai-output').innerHTML = '<span style="color:var(--ink3);font-size:12px">Trigger an emergency to generate real-time multilingual AI instructions...</span>';
   document.getElementById('routing-panel').innerHTML = '<div style="color:var(--ink3);font-size:12px">No active emergency</div>';
   document.getElementById('affected-list').innerHTML = '<div style="color:var(--ink3);font-size:12px">No active emergency</div>';
   document.getElementById('evac-info').textContent = 'No active evacuation route';
   ['a','b','c'].forEach(z=>document.getElementById('eb-'+z).classList.remove('on-fire'));
+  resetAgentFeed();
   logEntry(document.getElementById('event-log'), 'All zones cleared — system returned to normal');
 }
 
 window.onEmergency = (data) => applyEmergencyUI(data);
 window.onEmergencyCleared = () => clearAlert();
 window.onGuestUpdate = () => loadGuests();
+window.onAgentLog = window.onAgentLog;
+window.onAtRisk = window.onAtRisk;
 loadGuests();
 </script>
 {% endblock %}

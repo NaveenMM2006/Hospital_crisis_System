@@ -8,13 +8,6 @@
     <p>Real-time emergency coordination for hotels, resorts &amp; theme parks</p>
   </div>
 
-  <div class="grid4" style="margin-bottom:20px" id="overview-stats">
-    <div class="stat"><div class="stat-num" id="ov-total">—</div><div class="stat-label">Total guests</div></div>
-    <div class="stat"><div class="stat-num" id="ov-zones">3</div><div class="stat-label">Zones online</div></div>
-    <div class="stat"><div class="stat-num" id="ov-alerts">0</div><div class="stat-label">Active alerts</div></div>
-    <div class="stat"><div class="stat-num" id="ov-safe">100%</div><div class="stat-label">Safe status</div></div>
-  </div>
-
   <div class="alert-bar" id="ov-alert-bar">
     <div class="alert-bar-icon">🚨</div>
     <div class="alert-bar-text">
@@ -23,6 +16,23 @@
     </div>
   </div>
 
+  <!-- HERO STATUS + STATS -->
+  <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr 1fr;gap:14px;margin-bottom:20px;align-items:stretch">
+    <div class="card" id="ov-hero" style="display:flex;align-items:center;gap:16px">
+      <div id="ov-hero-icon" style="width:64px;height:64px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0">🛡️</div>
+      <div>
+        <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);font-weight:700">Current Status</div>
+        <div id="ov-hero-status" style="font-family:var(--display);font-size:26px;font-weight:800;color:var(--green)">SAFE</div>
+        <div id="ov-hero-sub" style="font-size:12px;color:var(--ink3)">All systems normal</div>
+      </div>
+    </div>
+    <div class="stat"><div style="font-size:18px">👥</div><div class="stat-num" id="ov-total">—</div><div class="stat-label">Total Guests</div></div>
+    <div class="stat"><div style="font-size:18px">📍</div><div class="stat-num" id="ov-zones">3</div><div class="stat-label">Zones Online</div></div>
+    <div class="stat"><div style="font-size:18px">🔔</div><div class="stat-num" id="ov-alerts">0</div><div class="stat-label">Active Alerts</div></div>
+    <div class="stat"><div style="font-size:18px">🛡️</div><div class="stat-num" id="ov-safe">100%</div><div class="stat-label">Safe Status</div></div>
+  </div>
+
+  <!-- ZONE STATUS + QUICK ACCESS -->
   <div class="grid2" style="margin-bottom:20px">
     <div class="card">
       <div class="card-title">Zone Status</div>
@@ -36,17 +46,29 @@
         <a href="/responder" class="btn btn-full">→ First Responder View</a>
       </div>
       <div style="margin-top:16px;padding:12px;background:var(--paper);border-radius:var(--radius);border:1px solid var(--paper3)">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:600;margin-bottom:8px">System</div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:600;margin-bottom:8px">System Status</div>
         <div style="display:flex;flex-direction:column;gap:5px;font-size:12px;font-family:var(--mono);color:var(--ink3)">
-          <span>● Firebase FCM topics: online</span>
-          <span>● Anthropic AI: configured</span>
-          <span>● Google Maps API: ready</span>
-          <span>● WebSocket sync: live</span>
+          <span>🟢 Firebase FCM topics: online</span>
+          <span>🟢 Anthropic AI: configured</span>
+          <span>🟢 Google Maps API: ready</span>
+          <span>🟢 WebSocket sync: live</span>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- EMERGENCY ACTIONS -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-title">📡 Emergency Actions</div>
+    <div class="grid4">
+      <a href="/admin" class="btn btn-full" style="background:linear-gradient(135deg,#F43F5E,#E53E3E);color:#fff;border:none;padding:18px">🚨 Raise Alert</a>
+      <a href="/admin" class="btn btn-full" style="background:linear-gradient(135deg,#FB923C,#F97316);color:#fff;border:none;padding:18px">🏃 Evacuation Mode</a>
+      <a href="/responder" class="btn btn-full" style="background:linear-gradient(135deg,#A78BFA,#8B5CF6);color:#fff;border:none;padding:18px">📞 Contact Responder</a>
+      <a href="/admin" class="btn btn-full" style="background:linear-gradient(135deg,#F472B6,#EC4899);color:#fff;border:none;padding:18px">📣 Emergency Broadcast</a>
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
   <div class="card">
     <div class="card-title">Architecture Overview</div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center;align-items:center">
@@ -56,10 +78,10 @@
         <div style="font-size:10px;color:var(--ink3);margin-top:2px">FCM Push Alerts</div>
       </div>
       <div style="color:var(--ink3);font-size:18px;font-weight:300">→</div>
-      <div style="background:var(--ink);color:#fff;border-radius:var(--radius);padding:12px">
+      <div style="background:linear-gradient(135deg,#C0303B,#7a1f26);color:#fff;border-radius:var(--radius);padding:12px">
         <div style="font-size:20px">⚡</div>
         <div style="font-size:11px;font-weight:600;margin-top:4px;font-family:var(--display)">Python / Flask</div>
-        <div style="font-size:10px;opacity:.6;margin-top:2px">+ SocketIO</div>
+        <div style="font-size:10px;opacity:.7;margin-top:2px">+ SocketIO</div>
       </div>
       <div style="color:var(--ink3);font-size:18px;font-weight:300">→</div>
       <div style="background:var(--paper);border-radius:var(--radius);padding:12px;border:1px solid var(--paper3)">
@@ -90,28 +112,14 @@
 </div>
 
 <script>
-// Function to play alert sound
-function playAlertSound() {
-  try {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Start frequency
-    oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.1); // Rise
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2); // Fall back
-
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.5);
-  } catch (e) {
-    console.log('Audio not supported');
-  }
+function playAlertSound(){
+  try{
+    const a=new (window.AudioContext||window.webkitAudioContext)();
+    const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);
+    o.frequency.setValueAtTime(800,a.currentTime);o.frequency.setValueAtTime(1200,a.currentTime+0.1);o.frequency.setValueAtTime(800,a.currentTime+0.2);
+    g.gain.setValueAtTime(0.3,a.currentTime);g.gain.exponentialRampToValueAtTime(0.01,a.currentTime+0.5);
+    o.start(a.currentTime);o.stop(a.currentTime+0.5);
+  }catch(e){}
 }
 
 async function loadOverview(){
@@ -122,15 +130,27 @@ async function loadOverview(){
   document.getElementById('ov-alerts').textContent = alerts;
   document.getElementById('ov-safe').textContent = alerts > 0 ? '⚠️' : '100%';
 
+  // hero
+  const heroStatus=document.getElementById('ov-hero-status'), heroIcon=document.getElementById('ov-hero-icon'), heroSub=document.getElementById('ov-hero-sub');
+  if(alerts>0){
+    heroStatus.textContent='ALERT';heroStatus.style.color='var(--red)';
+    heroIcon.style.background='var(--red-light)';heroIcon.textContent='🚨';
+    heroSub.textContent='Emergency in progress';
+  }else{
+    heroStatus.textContent='SAFE';heroStatus.style.color='var(--green)';
+    heroIcon.style.background='var(--green-light)';heroIcon.textContent='🛡️';
+    heroSub.textContent='All systems normal';
+  }
+
   const list = document.getElementById('zone-status-list');
   list.innerHTML = Object.entries(gz).map(([k,z])=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--paper2)">
-      <div style="width:10px;height:10px;border-radius:50%;background:${z.alert?'var(--red)':'var(--green)'}${z.alert?';animation:navpulse 1s infinite':''}"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--paper2)">
+      <div style="width:34px;height:34px;border-radius:9px;background:${z.alert?'var(--red-light)':'var(--green-light)'};display:flex;align-items:center;justify-content:center;font-size:15px">🏢</div>
       <div style="flex:1">
-        <div style="font-weight:500;font-size:13px">${z.name}</div>
+        <div style="font-weight:600;font-size:13px">${z.name}</div>
         <div style="font-size:11px;color:var(--ink3)">${z.count} guests registered</div>
       </div>
-      <span class="badge ${zoneClass(k)}">${z.alert ? z.emergency.type.toUpperCase() : 'Normal'}</span>
+      <span class="badge ${z.alert?'badge-alert':zoneClass(k)}">${z.alert ? z.emergency.type.toUpperCase() : 'Safe'}</span>
     </div>`).join('');
 
   if(alerts > 0){
@@ -140,6 +160,8 @@ async function loadOverview(){
     document.getElementById('ov-alert-desc').textContent = `${em.affected_count} guests affected. Triggered at ${new Date(em.time).toLocaleTimeString()}.`;
     document.getElementById('nav-dot').classList.add('pulse');
     document.getElementById('nav-alert').classList.add('show');
+  } else {
+    document.getElementById('ov-alert-bar').classList.remove('show');
   }
 }
 loadOverview();
