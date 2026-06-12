@@ -267,8 +267,8 @@ function showRouting(em){
     </a>`;
 }
 
-window.onEmergency = () => { startSiren(); loadAll(); };
-window.onEmergencyCleared = () => { stopSiren(); loadAll(); };
+window.onEmergency = () => { loadAll(); };
+window.onEmergencyCleared = () => { loadAll(); };
 window.onGuestUpdate = () => loadAll();
 loadAll();
 setInterval(loadAll, 10000); // Poll every 10s

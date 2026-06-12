@@ -228,14 +228,21 @@ select.form-control{cursor:pointer}
 
 <script>
 const socket = io();
+let emergencySiren = null;
+let emergencySirenContext = null;
+let emergencySirenInterval = null;
+
 socket.on('emergency_triggered', (data) => {
   document.getElementById('nav-dot').classList.add('pulse');
   document.getElementById('nav-alert').classList.add('show');
+  playEmergencySound();
+  startEmergencySiren();
   if(window.onEmergency) window.onEmergency(data);
 });
 socket.on('emergency_cleared', (data) => {
   document.getElementById('nav-dot').classList.remove('pulse');
   document.getElementById('nav-alert').classList.remove('show');
+  stopEmergencySiren();
   if(window.onEmergencyCleared) window.onEmergencyCleared(data);
 });
 socket.on('guest_update', (data) => {
@@ -243,6 +250,68 @@ socket.on('guest_update', (data) => {
 });
 socket.on('agent_log', d => window.onAgentLog && window.onAgentLog(d));
 socket.on('at_risk',   d => window.onAtRisk   && window.onAtRisk(d));
+
+function playEmergencySound() {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+    oscillator.start(audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.25);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+    oscillator.stop(audioContext.currentTime + 0.5);
+  } catch (e) {
+    console.warn('Emergency sound unavailable', e);
+  }
+}
+
+function startEmergencySiren() {
+  try {
+    if (emergencySiren) return;
+    emergencySirenContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = emergencySirenContext.createOscillator();
+    const gainNode = emergencySirenContext.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(700, emergencySirenContext.currentTime);
+    gainNode.gain.setValueAtTime(0.2, emergencySirenContext.currentTime);
+    oscillator.connect(gainNode);
+    gainNode.connect(emergencySirenContext.destination);
+    oscillator.start();
+    emergencySiren = oscillator;
+
+    emergencySirenInterval = setInterval(() => {
+      if (!emergencySiren) return;
+      const now = emergencySirenContext.currentTime;
+      const current = emergencySiren.frequency.value;
+      const target = current >= 1000 ? 700 : 1000;
+      emergencySiren.frequency.exponentialRampToValueAtTime(target, now + 0.15);
+    }, 350);
+  } catch (e) {
+    console.warn('Emergency siren unavailable', e);
+  }
+}
+
+function stopEmergencySiren() {
+  try {
+    if (!emergencySiren) return;
+    clearInterval(emergencySirenInterval);
+    emergencySirenInterval = null;
+    emergencySiren.stop();
+    emergencySiren.disconnect();
+    emergencySiren = null;
+    if (emergencySirenContext) {
+      emergencySirenContext.close();
+      emergencySirenContext = null;
+    }
+  } catch (e) {
+    console.warn('Failed to stop emergency siren', e);
+  }
+}
 
 function langFlag(l){return{English:'🇬🇧',German:'🇩🇪',French:'🇫🇷',Spanish:'🇪🇸',Japanese:'🇯🇵'}[l]||'🌐'}
 function zoneClass(z){return{A:'badge-a',B:'badge-b',C:'badge-c'}[z]||''}
